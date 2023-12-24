@@ -2,35 +2,33 @@ from flask import Flask, request
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-from flask_httpauth import HTTPBasicAuth
+from flask_security import Security, SQLAlchemySessionUserDatastore, login_required
+from user_security import User, Role
+from models import Task
 
-auth = HTTPBasicAuth()
-users = {
-    "admin":"password"
-}
-
-@auth.verify_password
-def verify_password(username,password):
-    if username in users and users[username] == password:
-        return username
-@auth.error_handler
-def unauthorized():
-    return {
-        'error':'Unauthorized access'
-    },401
-    
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'
-db = SQLAlchemy(app)
+# 相关config
+app.config['SECRET_KEY'] = 'super-secret'
+app.config['SECURITY_PASSWORD_SALT'] = 'super-secret-salt'
+app.config['SQLALCHEMY_BINDS'] = {
+    'users': 'sqlite:///users.db',
+    'business': 'sqlite:///tasks.db'
+}
+
+# 创建两个 SQLAlchemy 对象
+db_users = SQLAlchemy(app, session_options={"bind_key": "users"})
+db_business = SQLAlchemy(app, session_options={"bind_key": "business"})
+
+# 身份验证
+user_datastore = SQLAlchemySessionUserDatastore(db_users,User,Role)
+security = Security(app,user_datastore)
+
+# restful_api
 api = Api(app)
+
+# 对象序列化/反序列化库，验证和格式化API响应
 ma = Marshmallow(app)
-
-class Task(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(80), nullable=False)
-    description = db.Column(db.String(120))
-
 class TaskSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Task
@@ -40,18 +38,21 @@ tasks_schema = TaskSchema(many=True)
 
 
 with app.app_context():
-    db.create_all()
+    db_users.create_all()
+    db_business.create_all()
 
 class TaskResource(Resource):
+    @login_required
     def get(self):
         tasks = Task.query.all()
         return tasks_schema.dump(tasks)
     
+    @login_required
     def post(self):
         task_data = task_schema.load(request.json)
         task = Task(**task_data)
-        db.session.add(task)
-        db.session.commit()
+        db_business.session.add(task)
+        db_business.session.commit()
         return  task_schema.dump(task), 201
     
 api.add_resource(TaskResource,'/tasks')
@@ -59,11 +60,6 @@ api.add_resource(TaskResource,'/tasks')
 @app.errorhandler(400)
 def bad_request(e):
     return {'error': 'Bad request'}, 400 
-
-@app.route('/secure-endpoint')
-@auth.login_required
-def secure_endpoint():
-    return {'message': f"Hello, {auth.current_user()}"}
 
 if __name__=="__main__":
     app.run(debug=True)
