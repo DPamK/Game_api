@@ -8,7 +8,6 @@ from user_security import User, Role
 from models import Task
 from app_config import app, db
 
-
 # 身份验证
 user_datastore = SQLAlchemySessionUserDatastore(db,User,Role)
 security = Security(app,user_datastore)
