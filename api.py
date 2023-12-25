@@ -6,20 +6,8 @@ from flask_security import Security, SQLAlchemySessionUserDatastore, login_requi
 from flask_security.utils import hash_password
 from user_security import User, Role
 from models import Task
+from app_config import app, db
 
-
-app = Flask(__name__)
-# 相关config
-app.config['SECRET_KEY'] = 'super-secret'
-app.config['SECURITY_PASSWORD_SALT'] = 'super-secret-salt'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'
-app.config['SQLALCHEMY_BINDS'] = {
-    'users': 'sqlite:///users.db',
-    'business': 'sqlite:///tasks.db'
-}
-
-# 创建两个 SQLAlchemy 对象
-db = SQLAlchemy(app)
 
 # 身份验证
 user_datastore = SQLAlchemySessionUserDatastore(db,User,Role)
