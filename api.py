@@ -11,17 +11,17 @@ app = Flask(__name__)
 # 相关config
 app.config['SECRET_KEY'] = 'super-secret'
 app.config['SECURITY_PASSWORD_SALT'] = 'super-secret-salt'
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///tasks.db'
 app.config['SQLALCHEMY_BINDS'] = {
     'users': 'sqlite:///users.db',
     'business': 'sqlite:///tasks.db'
 }
 
 # 创建两个 SQLAlchemy 对象
-db_users = SQLAlchemy(app, session_options={"bind_key": "users"})
-db_business = SQLAlchemy(app, session_options={"bind_key": "business"})
+db = SQLAlchemy(app)
 
 # 身份验证
-user_datastore = SQLAlchemySessionUserDatastore(db_users,User,Role)
+user_datastore = SQLAlchemySessionUserDatastore(db,User,Role)
 security = Security(app,user_datastore)
 
 # restful_api
@@ -38,8 +38,7 @@ tasks_schema = TaskSchema(many=True)
 
 
 with app.app_context():
-    db_users.create_all()
-    db_business.create_all()
+    db.create_all()
 
 class TaskResource(Resource):
     @login_required
@@ -51,8 +50,8 @@ class TaskResource(Resource):
     def post(self):
         task_data = task_schema.load(request.json)
         task = Task(**task_data)
-        db_business.session.add(task)
-        db_business.session.commit()
+        db.session.add(task)
+        db.session.commit()
         return  task_schema.dump(task), 201
     
 api.add_resource(TaskResource,'/tasks')
