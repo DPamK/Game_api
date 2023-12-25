@@ -2,15 +2,22 @@ from flask import Flask, request
 from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
-from flask_security import Security, SQLAlchemySessionUserDatastore, login_required
-from flask_security.utils import hash_password
-from user_security import User, Role
+from flask_httpauth import HTTPBasicAuth
 from models import Task
 from app_config import app, db
 
 # 身份验证
-user_datastore = SQLAlchemySessionUserDatastore(db,User,Role)
-security = Security(app,user_datastore)
+auth = HTTPBasicAuth()
+users = {
+    "admin": "password"
+}
+@auth.verify_password
+def verify_password(username, password):
+    if username in users and users[username] == password:
+        return username
+@auth.error_handler
+def unauthorized():
+    return {'error': 'Unauthorized access'}, 401
 
 # restful_api
 api = Api(app)
@@ -29,12 +36,12 @@ with app.app_context():
     db.create_all()
 
 class TaskResource(Resource):
-    @login_required
+    @auth.login_required
     def get(self):
         tasks = Task.query.all()
         return tasks_schema.dump(tasks)
     
-    @login_required
+    @auth.login_required
     def post(self):
         task_data = task_schema.load(request.json)
         task = Task(**task_data)
