@@ -3,6 +3,7 @@ from flask_restful import Resource, Api
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from flask_security import Security, SQLAlchemySessionUserDatastore, login_required
+from flask_security.utils import hash_password
 from user_security import User, Role
 from models import Task
 
